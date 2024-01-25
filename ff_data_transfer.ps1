@@ -33,7 +33,7 @@ $oldProfileIndex = Read-Host "`nEnter the number of the old profile to transfer 
 $oldProfile = $firefoxProfiles[$oldProfileIndex - 1].FullName
 
 # Prompt user to select or create a new profile
-$newProfileChoice = Read-Host "Do you want to (E)nter the number of an existing profile or (C)reate a new profile? (E/C)"
+$newProfileChoice = Read-Host "`nDo you want to (E)nter the number of an existing profile or (C)reate a new profile? (E/C)"
 if ($newProfileChoice -eq "E") {
     # Prompt user to select existing new profile
     $newProfileIndex = Read-Host "Enter the number of the existing new profile to transfer data to"
@@ -42,8 +42,30 @@ if ($newProfileChoice -eq "E") {
     # Prompt user to enter the name for the new profile
     $newProfileName = Read-Host "Enter the name for the new profile"
     $newProfile = "$env:APPDATA\Mozilla\Firefox\Profiles\$newProfileName"
+    
     # Create the new profile directory
     New-Item -ItemType Directory -Force -Path $newProfile | Out-Null
+    
+    # Create a placeholder file for the new profile to make it visible in the profile manager
+    $placeholderFilePath = Join-Path $newProfile "user.js"
+    New-Item -ItemType File -Force -Path $placeholderFilePath | Out-Null
+    
+    # Create profiles.ini for the new profile
+    $profilesIniPath = Join-Path "$env:APPDATA\Mozilla\Firefox" "profiles.ini"
+    $newProfileID = [System.Guid]::NewGuid().ToString("B")
+    $profileIniContent = @"
+
+[Profile$($profileNumber-1)]
+Name=$newProfileName
+IsRelative=1
+Path=Profiles/$newProfileName
+Default=1
+
+"@
+    Add-Content -Path $profilesIniPath -Value $profileIniContent
+    
+    # Increment the profile number for verbosity
+    $profileNumber++
 } else {
     Write-Host "Invalid choice. Exiting."
     Exit
@@ -57,6 +79,7 @@ function Copy-FileIfExists {
     )
 
     if (Test-Path $source) {
+        Write-Host "Copying $($source) to $($destination)"
         Copy-Item $source -Destination $destination -Force
     }
 }
@@ -86,3 +109,5 @@ Copy-FileIfExists "$oldProfile\cert9.db" "$newProfile\cert9.db"
 
 # Copy file formats and download actions
 Copy-FileIfExists "$oldProfile\handlers.json" "$newProfile\handlers.json"
+
+Write-Host "`nDone, bye"
